@@ -1,9 +1,11 @@
--- Dev Hub - Bot Hopper UI System
+-- Dev Hub - Advanced Bot Hopper UI System
 -- Execute with: loadstring(game:HttpGet("https://raw.githubusercontent.com/ominomin946-a11y/Hsush/main/bot_hopper.lua"))()
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -14,7 +16,12 @@ local settings = {
     botCount = 3,
     autoJoin = true,
     autoHop = true,
-    waitTime = 10
+    waitTime = 10,
+    targets = {
+        ["Garama"] = true,
+        ["Madundung"] = true,
+        ["Dragon Cannelloni"] = true
+    }
 }
 
 -- Stats
@@ -23,7 +30,8 @@ local stats = {
     hops = 0,
     targetsFound = 0,
     currentServer = game.JobId,
-    lastUpdate = tick()
+    lastUpdate = tick(),
+    targetsList = {}
 }
 
 -- Create ScreenGui
@@ -96,8 +104,8 @@ end)
 -- Main Frame (Hidden by default)
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 420, 0, 650)
-mainFrame.Position = UDim2.new(0.5, -210, 0.5, -325)
+mainFrame.Size = UDim2.new(0, 450, 0, 700)
+mainFrame.Position = UDim2.new(0.5, -225, 0.5, -350)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 mainFrame.BorderSizePixel = 0
 mainFrame.Visible = false
@@ -148,7 +156,7 @@ subtitleLabel.BackgroundTransparency = 1
 subtitleLabel.TextColor3 = Color3.fromRGB(30, 30, 30)
 subtitleLabel.TextSize = 11
 subtitleLabel.Font = Enum.Font.Gotham
-subtitleLabel.Text = "🤖 Bot Hopper"
+subtitleLabel.Text = "🤖 Advanced Bot Hopper"
 subtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 subtitleLabel.Parent = titleBar
 
@@ -234,7 +242,7 @@ scrollFrame.Size = UDim2.new(1, 0, 1, 0)
 scrollFrame.BackgroundTransparency = 1
 scrollFrame.ScrollBarThickness = 6
 scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 140, 0)
-scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 1100)
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 1200)
 scrollFrame.Parent = contentFrame
 
 -- Padding for content
@@ -248,7 +256,7 @@ contentPadding.Parent = scrollFrame
 -- Stats Panel
 local statsPanel = Instance.new("Frame")
 statsPanel.Name = "StatsPanel"
-statsPanel.Size = UDim2.new(1, -30, 0, 120)
+statsPanel.Size = UDim2.new(1, -30, 0, 100)
 statsPanel.Position = UDim2.new(0, 15, 0, 15)
 statsPanel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 statsPanel.BorderSizePixel = 0
@@ -275,17 +283,164 @@ statsLabel.Name = "StatsLabel"
 statsLabel.Size = UDim2.new(1, 0, 1, 0)
 statsLabel.BackgroundTransparency = 1
 statsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-statsLabel.TextSize = 13
+statsLabel.TextSize = 12
 statsLabel.Font = Enum.Font.Gotham
 statsLabel.TextXAlignment = Enum.TextXAlignment.Left
 statsLabel.TextYAlignment = Enum.TextYAlignment.Top
 statsLabel.Parent = statsPanel
 
--- Section Title: Bot Settings
+-- Section Title: Server Finder
+local finderTitleLabel = Instance.new("TextLabel")
+finderTitleLabel.Name = "FinderTitle"
+finderTitleLabel.Size = UDim2.new(1, -30, 0, 25)
+finderTitleLabel.Position = UDim2.new(0, 15, 0, 125)
+finderTitleLabel.BackgroundTransparency = 1
+finderTitleLabel.TextColor3 = Color3.fromRGB(255, 140, 0)
+finderTitleLabel.TextSize = 16
+finderTitleLabel.Font = Enum.Font.GothamBold
+finderTitleLabel.Text = "🔍 SERVER FINDER"
+finderTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+finderTitleLabel.Parent = scrollFrame
+
+-- Target List Container
+local targetListFrame = Instance.new("Frame")
+targetListFrame.Name = "TargetList"
+targetListFrame.Size = UDim2.new(1, -30, 0, 180)
+targetListFrame.Position = UDim2.new(0, 15, 0, 160)
+targetListFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+targetListFrame.BorderSizePixel = 0
+targetListFrame.Parent = scrollFrame
+
+local targetCorner = Instance.new("UICorner")
+targetCorner.CornerRadius = UDim.new(0, 10)
+targetCorner.Parent = targetListFrame
+
+local targetStroke = Instance.new("UIStroke")
+targetStroke.Color = Color3.fromRGB(255, 140, 0)
+targetStroke.Thickness = 1
+targetStroke.Parent = targetListFrame
+
+local targetListLayout = Instance.new("UIListLayout")
+targetListLayout.Padding = UDim.new(0, 8)
+targetListLayout.FillDirection = Enum.FillDirection.Vertical
+targetListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+targetListLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+targetListLayout.Parent = targetListFrame
+
+local targetListPadding = Instance.new("UIPadding")
+targetListPadding.PaddingLeft = UDim.new(0, 12)
+targetListPadding.PaddingRight = UDim.new(0, 12)
+targetListPadding.PaddingTop = UDim.new(0, 12)
+targetListPadding.PaddingBottom = UDim.new(0, 12)
+targetListPadding.Parent = targetListFrame
+
+-- Create target list items
+local function createTargetItem(targetName, targetFound)
+    local itemFrame = Instance.new("Frame")
+    itemFrame.Size = UDim2.new(1, 0, 0, 40)
+    itemFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    itemFrame.BorderSizePixel = 0
+    itemFrame.Parent = targetListFrame
+
+    local itemCorner = Instance.new("UICorner")
+    itemCorner.CornerRadius = UDim.new(0, 6)
+    itemCorner.Parent = itemFrame
+
+    local itemLabel = Instance.new("TextLabel")
+    itemLabel.Size = UDim2.new(0.6, 0, 1, 0)
+    itemLabel.Position = UDim2.new(0, 10, 0, 0)
+    itemLabel.BackgroundTransparency = 1
+    itemLabel.TextColor3 = targetFound and Color3.fromRGB(100, 200, 100) or Color3.fromRGB(255, 255, 255)
+    itemLabel.TextSize = 13
+    itemLabel.Font = Enum.Font.GothamBold
+    itemLabel.Text = (targetFound and "✓ " or "") .. targetName
+    itemLabel.TextXAlignment = Enum.TextXAlignment.Left
+    itemLabel.TextYAlignment = Enum.TextYAlignment.Center
+    itemLabel.Parent = itemFrame
+
+    -- Join Button
+    local joinButton = Instance.new("TextButton")
+    joinButton.Size = UDim2.new(0, 50, 0, 28)
+    joinButton.Position = UDim2.new(1, -115, 0.5, -14)
+    joinButton.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    joinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    joinButton.TextSize = 11
+    joinButton.Font = Enum.Font.GothamBold
+    joinButton.Text = "JOIN"
+    joinButton.BorderSizePixel = 0
+    joinButton.Parent = itemFrame
+
+    local joinCorner = Instance.new("UICorner")
+    joinCorner.CornerRadius = UDim.new(0, 5)
+    joinCorner.Parent = joinButton
+
+    -- Force Join Button
+    local forceButton = Instance.new("TextButton")
+    forceButton.Size = UDim2.new(0, 50, 0, 28)
+    forceButton.Position = UDim2.new(1, -55, 0.5, -14)
+    forceButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+    forceButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    forceButton.TextSize = 11
+    forceButton.Font = Enum.Font.GothamBold
+    forceButton.Text = "FORCE"
+    forceButton.BorderSizePixel = 0
+    forceButton.Parent = itemFrame
+
+    local forceCorner = Instance.new("UICorner")
+    forceCorner.CornerRadius = UDim.new(0, 5)
+    forceCorner.Parent = forceButton
+
+    joinButton.MouseButton1Click:Connect(function()
+        joinButton.BackgroundColor3 = Color3.fromRGB(70, 120, 255)
+        joinButton.Text = "JOINING..."
+        joinButton.Enabled = false
+        stats.hops = stats.hops + 1
+        task.wait(2)
+        joinButton.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+        joinButton.Text = "JOIN"
+        joinButton.Enabled = true
+    end)
+
+    forceButton.MouseButton1Click:Connect(function()
+        forceButton.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+        forceButton.Text = "FORCING..."
+        forceButton.Enabled = false
+        stats.hops = stats.hops + 1
+        task.wait(2)
+        forceButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+        forceButton.Text = "FORCE"
+        forceButton.Enabled = true
+    end)
+
+    joinButton.MouseEnter:Connect(function()
+        joinButton.BackgroundColor3 = Color3.fromRGB(120, 170, 255)
+    end)
+
+    joinButton.MouseLeave:Connect(function()
+        joinButton.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    end)
+
+    forceButton.MouseEnter:Connect(function()
+        forceButton.BackgroundColor3 = Color3.fromRGB(255, 120, 120)
+    end)
+
+    forceButton.MouseLeave:Connect(function()
+        forceButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+    end)
+
+    return itemFrame
+end
+
+-- Populate targets
+for targetName, _ in pairs(settings.targets) do
+    createTargetItem(targetName, false)
+end
+
+-- Section Title: Bot Controls
 local botTitleLabel = Instance.new("TextLabel")
 botTitleLabel.Name = "BotTitle"
 botTitleLabel.Size = UDim2.new(1, -30, 0, 25)
-botTitleLabel.Position = UDim2.new(0, 15, 0, 145)
+botTitleLabel.Position = UDim2.new(0, 15, 0, 355)
 botTitleLabel.BackgroundTransparency = 1
 botTitleLabel.TextColor3 = Color3.fromRGB(255, 140, 0)
 botTitleLabel.TextSize = 16
@@ -298,7 +453,7 @@ botTitleLabel.Parent = scrollFrame
 local botCountContainer = Instance.new("Frame")
 botCountContainer.Name = "BotCountContainer"
 botCountContainer.Size = UDim2.new(1, -30, 0, 45)
-botCountContainer.Position = UDim2.new(0, 15, 0, 180)
+botCountContainer.Position = UDim2.new(0, 15, 0, 390)
 botCountContainer.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 botCountContainer.BorderSizePixel = 0
 botCountContainer.Parent = scrollFrame
@@ -370,63 +525,11 @@ botCountDownButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Auto Join Toggle
-local autoJoinContainer = Instance.new("Frame")
-autoJoinContainer.Name = "AutoJoinContainer"
-autoJoinContainer.Size = UDim2.new(1, -30, 0, 45)
-autoJoinContainer.Position = UDim2.new(0, 15, 0, 235)
-autoJoinContainer.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-autoJoinContainer.BorderSizePixel = 0
-autoJoinContainer.Parent = scrollFrame
-
-local autoJoinCorner = Instance.new("UICorner")
-autoJoinCorner.CornerRadius = UDim.new(0, 8)
-autoJoinCorner.Parent = autoJoinContainer
-
-local autoJoinStroke = Instance.new("UIStroke")
-autoJoinStroke.Color = Color3.fromRGB(255, 140, 0)
-autoJoinStroke.Thickness = 1
-autoJoinStroke.Parent = autoJoinContainer
-
-local autoJoinLabel = Instance.new("TextLabel")
-autoJoinLabel.Size = UDim2.new(0.6, 0, 1, 0)
-autoJoinLabel.Position = UDim2.new(0, 12, 0, 0)
-autoJoinLabel.BackgroundTransparency = 1
-autoJoinLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-autoJoinLabel.TextSize = 14
-autoJoinLabel.Font = Enum.Font.GothamBold
-autoJoinLabel.Text = "Auto Join"
-autoJoinLabel.TextXAlignment = Enum.TextXAlignment.Left
-autoJoinLabel.TextYAlignment = Enum.TextYAlignment.Center
-autoJoinLabel.Parent = autoJoinContainer
-
-local autoJoinToggle = Instance.new("TextButton")
-autoJoinToggle.Name = "Toggle"
-autoJoinToggle.Size = UDim2.new(0, 45, 0, 25)
-autoJoinToggle.Position = UDim2.new(1, -60, 0.5, -12)
-autoJoinToggle.BackgroundColor3 = Color3.fromRGB(50, 150, 100)
-autoJoinToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-autoJoinToggle.TextSize = 10
-autoJoinToggle.Font = Enum.Font.GothamBold
-autoJoinToggle.Text = "ON"
-autoJoinToggle.BorderSizePixel = 0
-autoJoinToggle.Parent = autoJoinContainer
-
-local joinToggleCorner = Instance.new("UICorner")
-joinToggleCorner.CornerRadius = UDim.new(0, 5)
-joinToggleCorner.Parent = autoJoinToggle
-
-autoJoinToggle.MouseButton1Click:Connect(function()
-    settings.autoJoin = not settings.autoJoin
-    autoJoinToggle.Text = settings.autoJoin and "ON" or "OFF"
-    autoJoinToggle.BackgroundColor3 = settings.autoJoin and Color3.fromRGB(50, 150, 100) or Color3.fromRGB(150, 50, 50)
-end)
-
 -- Launch Bots Button
 local launchButton = Instance.new("TextButton")
 launchButton.Name = "LaunchButton"
 launchButton.Size = UDim2.new(1, -30, 0, 45)
-launchButton.Position = UDim2.new(0, 15, 0, 290)
+launchButton.Position = UDim2.new(0, 15, 0, 445)
 launchButton.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
 launchButton.TextColor3 = Color3.fromRGB(20, 20, 20)
 launchButton.TextSize = 16
@@ -458,143 +561,6 @@ launchButton.MouseLeave:Connect(function()
     launchButton.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
 end)
 
--- Section Title: Server Hopper
-local hopTitleLabel = Instance.new("TextLabel")
-hopTitleLabel.Name = "HopTitle"
-hopTitleLabel.Size = UDim2.new(1, -30, 0, 25)
-hopTitleLabel.Position = UDim2.new(0, 15, 0, 345)
-hopTitleLabel.BackgroundTransparency = 1
-hopTitleLabel.TextColor3 = Color3.fromRGB(255, 140, 0)
-hopTitleLabel.TextSize = 16
-hopTitleLabel.Font = Enum.Font.GothamBold
-hopTitleLabel.Text = "🌐 SERVER HOPPER"
-hopTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-hopTitleLabel.Parent = scrollFrame
-
--- Auto Hop Toggle
-local autoHopContainer = Instance.new("Frame")
-autoHopContainer.Name = "AutoHopContainer"
-autoHopContainer.Size = UDim2.new(1, -30, 0, 45)
-autoHopContainer.Position = UDim2.new(0, 15, 0, 380)
-autoHopContainer.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-autoHopContainer.BorderSizePixel = 0
-autoHopContainer.Parent = scrollFrame
-
-local autoHopCorner = Instance.new("UICorner")
-autoHopCorner.CornerRadius = UDim.new(0, 8)
-autoHopCorner.Parent = autoHopContainer
-
-local autoHopStroke = Instance.new("UIStroke")
-autoHopStroke.Color = Color3.fromRGB(255, 140, 0)
-autoHopStroke.Thickness = 1
-autoHopStroke.Parent = autoHopContainer
-
-local autoHopLabel = Instance.new("TextLabel")
-autoHopLabel.Size = UDim2.new(0.6, 0, 1, 0)
-autoHopLabel.Position = UDim2.new(0, 12, 0, 0)
-autoHopLabel.BackgroundTransparency = 1
-autoHopLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-autoHopLabel.TextSize = 14
-autoHopLabel.Font = Enum.Font.GothamBold
-autoHopLabel.Text = "Auto Hop"
-autoHopLabel.TextXAlignment = Enum.TextXAlignment.Left
-autoHopLabel.TextYAlignment = Enum.TextYAlignment.Center
-autoHopLabel.Parent = autoHopContainer
-
-local autoHopToggle = Instance.new("TextButton")
-autoHopToggle.Name = "Toggle"
-autoHopToggle.Size = UDim2.new(0, 45, 0, 25)
-autoHopToggle.Position = UDim2.new(1, -60, 0.5, -12)
-autoHopToggle.BackgroundColor3 = Color3.fromRGB(50, 150, 100)
-autoHopToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-autoHopToggle.TextSize = 10
-autoHopToggle.Font = Enum.Font.GothamBold
-autoHopToggle.Text = "ON"
-autoHopToggle.BorderSizePixel = 0
-autoHopToggle.Parent = autoHopContainer
-
-local hopToggleCorner = Instance.new("UICorner")
-hopToggleCorner.CornerRadius = UDim.new(0, 5)
-hopToggleCorner.Parent = autoHopToggle
-
-autoHopToggle.MouseButton1Click:Connect(function()
-    settings.autoHop = not settings.autoHop
-    autoHopToggle.Text = settings.autoHop and "ON" or "OFF"
-    autoHopToggle.BackgroundColor3 = settings.autoHop and Color3.fromRGB(50, 150, 100) or Color3.fromRGB(150, 50, 50)
-end)
-
--- Hop Now Button
-local hopButton = Instance.new("TextButton")
-hopButton.Name = "HopButton"
-hopButton.Size = UDim2.new(1, -30, 0, 45)
-hopButton.Position = UDim2.new(0, 15, 0, 435)
-hopButton.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
-hopButton.TextColor3 = Color3.fromRGB(20, 20, 20)
-hopButton.TextSize = 16
-hopButton.Font = Enum.Font.GothamBold
-hopButton.Text = "🔄 HOP NOW"
-hopButton.BorderSizePixel = 0
-hopButton.Parent = scrollFrame
-
-local hopCorner = Instance.new("UICorner")
-hopCorner.CornerRadius = UDim.new(0, 10)
-hopCorner.Parent = hopButton
-
-hopButton.MouseButton1Click:Connect(function()
-    hopButton.Text = "⏳ HOPPING..."
-    hopButton.BackgroundColor3 = Color3.fromRGB(200, 100, 0)
-    hopButton.Enabled = false
-    stats.hops = stats.hops + 1
-    task.wait(2)
-    hopButton.Text = "🔄 HOP NOW"
-    hopButton.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
-    hopButton.Enabled = true
-end)
-
-hopButton.MouseEnter:Connect(function()
-    hopButton.BackgroundColor3 = Color3.fromRGB(220, 120, 0)
-end)
-
-hopButton.MouseLeave:Connect(function()
-    hopButton.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
-end)
-
--- Reset Stats Button
-local resetButton = Instance.new("TextButton")
-resetButton.Name = "ResetButton"
-resetButton.Size = UDim2.new(1, -30, 0, 45)
-resetButton.Position = UDim2.new(0, 15, 0, 490)
-resetButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-resetButton.TextColor3 = Color3.fromRGB(255, 140, 0)
-resetButton.TextSize = 14
-resetButton.Font = Enum.Font.GothamBold
-resetButton.Text = "🔄 RESET STATS"
-resetButton.BorderSizePixel = 0
-resetButton.Parent = scrollFrame
-
-local resetCorner = Instance.new("UICorner")
-resetCorner.CornerRadius = UDim.new(0, 10)
-resetCorner.Parent = resetButton
-
-local resetStroke = Instance.new("UIStroke")
-resetStroke.Color = Color3.fromRGB(255, 140, 0)
-resetStroke.Thickness = 1
-resetStroke.Parent = resetButton
-
-resetButton.MouseButton1Click:Connect(function()
-    stats.hops = 0
-    stats.targetsFound = 0
-    stats.activeBots = 0
-end)
-
-resetButton.MouseEnter:Connect(function()
-    resetButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-end)
-
-resetButton.MouseLeave:Connect(function()
-    resetButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-end)
-
 -- Toggle main frame when clicking floating button
 floatingButton.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
@@ -613,7 +579,7 @@ end)
 -- Update stats display
 local function updateStats()
     statsLabel.Text = string.format(
-        "🤖 ACTIVE BOTS\n%d\n\n🔄 HOPS\n%d\n\n🖥️ CURRENT SERVER\n%s",
+        "🤖 ACTIVE BOTS\n%d\n\n🔄 TOTAL HOPS\n%d\n\n🖥️ CURRENT SERVER\n%s",
         stats.activeBots,
         stats.hops,
         string.sub(stats.currentServer, 1, 6) .. "..."
@@ -631,5 +597,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("✅ Dev Hub Bot Hopper Loaded!")
+print("✅ Dev Hub Advanced Bot Hopper Loaded!")
 print("📌 Click the floating button or press 'P' to toggle the UI")
+print("🔍 Use the Server Finder to locate and join targets!")
