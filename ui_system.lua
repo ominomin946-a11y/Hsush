@@ -1,4 +1,4 @@
--- Server Hopper UI System (Enhanced)
+-- Dev Hub - Server Hopper UI System
 -- Execute with: loadstring(game:HttpGet("https://raw.githubusercontent.com/ominomin946-a11y/Hsush/main/ui_system.lua"))()
 
 local Players = game:GetService("Players")
@@ -27,7 +27,7 @@ local stats = {
 
 -- Create ScreenGui
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ServerHopperUI"
+screenGui.Name = "DevHubUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
@@ -51,7 +51,7 @@ stroke.Color = Color3.fromRGB(255, 140, 0)
 stroke.Thickness = 2
 stroke.Parent = mainFrame
 
--- Title Bar
+-- Title Bar with Dev Hub branding
 local titleBar = Instance.new("Frame")
 titleBar.Name = "TitleBar"
 titleBar.Size = UDim2.new(1, 0, 0, 50)
@@ -63,17 +63,31 @@ local titleCorner = Instance.new("UICorner")
 titleCorner.CornerRadius = UDim.new(0, 15)
 titleCorner.Parent = titleBar
 
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Name = "Title"
-titleLabel.Size = UDim2.new(1, -20, 1, 0)
-titleLabel.Position = UDim2.new(0, 10, 0, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.TextColor3 = Color3.fromRGB(20, 20, 20)
-titleLabel.TextSize = 20
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Text = "⚡ SERVER HOPPER"
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-titleLabel.Parent = titleBar
+-- Main Title: Dev Hub
+local mainTitleLabel = Instance.new("TextLabel")
+mainTitleLabel.Name = "MainTitle"
+mainTitleLabel.Size = UDim2.new(1, -20, 0, 20)
+mainTitleLabel.Position = UDim2.new(0, 10, 0, 5)
+mainTitleLabel.BackgroundTransparency = 1
+mainTitleLabel.TextColor3 = Color3.fromRGB(20, 20, 20)
+mainTitleLabel.TextSize = 18
+mainTitleLabel.Font = Enum.Font.GothamBold
+mainTitleLabel.Text = "DEV HUB"
+mainTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+mainTitleLabel.Parent = titleBar
+
+-- Subtitle: Server Hopper
+local subtitleLabel = Instance.new("TextLabel")
+subtitleLabel.Name = "Subtitle"
+subtitleLabel.Size = UDim2.new(1, -20, 0, 18)
+subtitleLabel.Position = UDim2.new(0, 10, 0, 22)
+subtitleLabel.BackgroundTransparency = 1
+subtitleLabel.TextColor3 = Color3.fromRGB(30, 30, 30)
+subtitleLabel.TextSize = 11
+subtitleLabel.Font = Enum.Font.Gotham
+subtitleLabel.Text = "⚡ Server Hopper"
+subtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+subtitleLabel.Parent = titleBar
 
 -- Close button
 local closeButton = Instance.new("TextButton")
@@ -104,7 +118,7 @@ closeButton.MouseLeave:Connect(function()
     closeButton.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
 end)
 
--- Dragging
+-- Dragging (from title bar)
 local dragging = false
 local dragStart = nil
 local startPos = nil
@@ -470,5 +484,5 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("✅ Server Hopper UI Loaded!")
+print("✅ Dev Hub Server Hopper Loaded!")
 print("📌 Press 'P' to toggle the UI")
